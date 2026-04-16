@@ -64,6 +64,11 @@ const css=`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@40
 @keyframes bounce{0%,80%,100%{transform:scale(0)}40%{transform:scale(1)}}
 ::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px}`;
 
+// ─── AUTH / ADMIN CONFIG ──────────────────────────────────
+// Modifiez cette liste pour ajouter/retirer des administrateurs.
+const ADMIN_EMAILS=["hamed.bounedjar.prof@gmail.com"];
+const isAdmin=u=>!!u&&ADMIN_EMAILS.includes(u.email);
+
 // ─── COMPONENTS ───────────────────────────────────────────
 function Badge({children,color=T.green,bg:b}){return <span style={{display:"inline-flex",alignItems:"center",gap:4,padding:"4px 12px",borderRadius:20,fontSize:11,fontWeight:700,background:b||color+"14",color,letterSpacing:.3}}>{children}</span>}
 function Btn({children,onClick,v="primary",disabled:d,style:s}){const[h,sH]=useState(false);const base={padding:"10px 22px",borderRadius:T.rs,fontSize:14,fontWeight:700,cursor:d?"not-allowed":"pointer",border:"none",fontFamily:"'DM Sans',sans-serif",transition:"all .2s",opacity:d?.5:1,display:"inline-flex",alignItems:"center",gap:8,transform:h&&!d?"translateY(-1px)":"none",boxShadow:h&&!d?T.shH:T.sh};const vs={primary:{background:T.grad5,color:T.white},secondary:{background:T.white,color:T.text,border:`1.5px solid ${T.border}`},ghost:{background:"transparent",color:T.sec,boxShadow:"none"}};return <button onClick={d?undefined:onClick} onMouseEnter={()=>sH(true)} onMouseLeave={()=>sH(false)} style={{...base,...vs[v],...s}}>{children}</button>}
@@ -136,11 +141,11 @@ function SeqDetail({seq,onClose,user,onNeedAuth}){
               {s.contenu&&<p style={{fontSize:13,color:T.sec,lineHeight:1.5,marginBottom:10,paddingLeft:48}}>{s.contenu}…</p>}
               <div style={{display:"flex",gap:8,flexWrap:"wrap",paddingLeft:48}}>
                 {s.files.map((f,j)=>(
-                  <div key={j} onClick={()=>sPr(f)} style={{display:"flex",alignItems:"center",gap:6,padding:"7px 14px",borderRadius:8,background:T.input,border:`1.5px solid ${T.border}`,cursor:"pointer",fontSize:12,fontWeight:600,color:T.text,transition:"all .2s"}}
+                  <div key={j} onClick={()=>user?sPr(f):onNeedAuth()} style={{display:"flex",alignItems:"center",gap:6,padding:"7px 14px",borderRadius:8,background:T.input,border:`1.5px solid ${T.border}`,cursor:"pointer",fontSize:12,fontWeight:600,color:T.text,transition:"all .2s",opacity:user?1:.65}}
                     onMouseEnter={e=>{e.currentTarget.style.borderColor=c;e.currentTarget.style.background=bg}}
                     onMouseLeave={e=>{e.currentTarget.style.borderColor=T.border;e.currentTarget.style.background=T.input}}>
-                    <span>{f.icon}</span>{f.label}
-                    <span style={{color:T.blue,fontSize:10,marginLeft:4}}>📥</span>
+                    <span>{user?f.icon:"🔒"}</span>{f.label}
+                    <span style={{color:T.blue,fontSize:10,marginLeft:4}}>{user?"📥":"🔒"}</span>
                   </div>
                 ))}
               </div>
@@ -148,7 +153,12 @@ function SeqDetail({seq,onClose,user,onNeedAuth}){
           ))}
         </div>}
 
-        {tab==="ressources"&&<div style={{display:"flex",flexDirection:"column",gap:10}}>
+        {tab==="ressources"&&(!user?<div style={{textAlign:"center",padding:"50px 20px",background:T.card,borderRadius:T.rl,border:`1.5px solid ${T.border}`,boxShadow:T.sh}}>
+          <div style={{fontSize:52,marginBottom:16}}>🔒</div>
+          <h3 style={{fontSize:18,fontWeight:800,marginBottom:10,fontFamily:"'Sora',sans-serif"}}>Accès réservé aux membres</h3>
+          <p style={{fontSize:14,color:T.sec,marginBottom:20,maxWidth:420,margin:"0 auto 20px",lineHeight:1.6}}>Connectez-vous pour consulter et télécharger les ressources pédagogiques de cette séquence.</p>
+          <Btn onClick={onNeedAuth}>🔑 Se connecter</Btn>
+        </div>:<div style={{display:"flex",flexDirection:"column",gap:10}}>
           <p style={{fontSize:13,color:T.dim,marginBottom:8}}>Cliquez pour <strong style={{color:T.green}}>prévisualiser</strong> puis télécharger. Tous les documents sont des fichiers HTML imprimables.</p>
           {seq.resources.map((r,i)=>(
             <div key={i} onClick={()=>sPr(r)} style={{padding:"14px 16px",borderRadius:T.rs,background:T.card,border:`1.5px solid ${T.border}`,display:"flex",alignItems:"center",gap:12,cursor:"pointer",boxShadow:T.sh,transition:"all .2s"}}
@@ -174,7 +184,7 @@ function SeqDetail({seq,onClose,user,onNeedAuth}){
               </div>
             </div>
           ))}
-        </div>}
+        </div>)}
 
         {tab==="ia"&&<div style={{height:"60vh"}}><AIChat sequence={seq}/></div>}
 
@@ -353,6 +363,102 @@ JSON pur (pas de backticks): {"titre":"...","niveau":"${form.niveau}","duree":"X
   </div>;
 }
 
+// ─── ADMIN PANEL ──────────────────────────────────────────
+function AdminPanel({allSeqs,userSeqs,onDeleteSeq,currentUser}){
+  const[tab,sT]=useState("users");
+  const[users,sUsers]=useState({});
+  const[comments,sComments]=useState([]);
+  const[loaded,sLd]=useState(false);
+  const loadAll=async()=>{
+    const u=await ST.gS("tc-users")||{};
+    sUsers(u);
+    const all=[];
+    for(const s of allSeqs){
+      const c=await ST.gS("tc-comments-"+s.id)||[];
+      c.forEach((com,idx)=>all.push({...com,seqId:s.id,seqTitre:s.titre,idx}));
+    }
+    sComments(all.sort((a,b)=>(b.date||0)-(a.date||0)));
+    sLd(true);
+  };
+  useEffect(()=>{loadAll()},[]);
+  const deleteUser=async email=>{
+    if(email===currentUser?.email){alert("Vous ne pouvez pas supprimer votre propre compte.");return;}
+    if(isAdmin({email})){alert("Impossible de supprimer un administrateur.");return;}
+    if(!confirm(`Supprimer l'utilisateur ${email} ?`))return;
+    const nu={...users};delete nu[email];
+    await ST.sS("tc-users",nu);sUsers(nu);
+  };
+  const deleteComment=async(seqId,idx)=>{
+    if(!confirm("Supprimer ce commentaire ?"))return;
+    const c=await ST.gS("tc-comments-"+seqId)||[];
+    c.splice(idx,1);
+    await ST.sS("tc-comments-"+seqId,c);
+    loadAll();
+  };
+  const deleteSeq=async(id,titre)=>{
+    if(!confirm(`Supprimer la séquence « ${titre} » ?`))return;
+    await onDeleteSeq(id);
+  };
+  const tabStyle=a=>({padding:"10px 16px",border:"none",background:a?T.greenBg:"transparent",color:a?T.green:T.dim,fontSize:13,fontWeight:700,cursor:"pointer",borderRadius:8,fontFamily:"'DM Sans',sans-serif"});
+  const delBtn={background:T.red+"1a",color:T.red,border:`1px solid ${T.red}33`,padding:"6px 12px",borderRadius:8,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"'DM Sans',sans-serif"};
+  if(!loaded)return <div style={{padding:30,textAlign:"center",color:T.dim}}>Chargement…</div>;
+  return (
+    <div style={{display:"flex",flexDirection:"column",gap:14}}>
+      <div style={{display:"flex",gap:4,borderBottom:`1px solid ${T.border}`,paddingBottom:10,flexWrap:"wrap"}}>
+        <button onClick={()=>sT("users")} style={tabStyle(tab==="users")}>👥 Utilisateurs ({Object.keys(users).length})</button>
+        <button onClick={()=>sT("comments")} style={tabStyle(tab==="comments")}>💬 Commentaires ({comments.length})</button>
+        <button onClick={()=>sT("seqs")} style={tabStyle(tab==="seqs")}>📦 Séquences publiées ({userSeqs.length})</button>
+      </div>
+
+      {tab==="users"&&<div style={{display:"flex",flexDirection:"column",gap:8,maxHeight:"58vh",overflowY:"auto"}}>
+        {Object.keys(users).length===0?<p style={{color:T.dim,textAlign:"center",padding:24}}>Aucun utilisateur inscrit.</p>:
+          Object.entries(users).map(([email,u])=>(
+            <div key={email} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",background:T.input,borderRadius:T.rs,border:`1px solid ${T.border}`,gap:10}}>
+              <div style={{minWidth:0,flex:1}}>
+                <div style={{fontSize:14,fontWeight:700,display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+                  <span>{u.name}</span>
+                  {isAdmin({email})&&<span style={{fontSize:10,padding:"2px 8px",borderRadius:10,background:T.purpleBg,color:T.purple,fontWeight:800,letterSpacing:.5}}>ADMIN</span>}
+                </div>
+                <div style={{fontSize:12,color:T.dim,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{email} · Inscrit le {u.joined?new Date(u.joined).toLocaleDateString("fr-FR"):"—"}</div>
+              </div>
+              {!isAdmin({email})&&email!==currentUser?.email&&<button onClick={()=>deleteUser(email)} style={delBtn}>🗑 Supprimer</button>}
+            </div>
+          ))}
+      </div>}
+
+      {tab==="comments"&&<div style={{display:"flex",flexDirection:"column",gap:8,maxHeight:"58vh",overflowY:"auto"}}>
+        {comments.length===0?<p style={{color:T.dim,textAlign:"center",padding:24}}>Aucun commentaire à modérer.</p>:
+          comments.map((c,i)=>(
+            <div key={i} style={{padding:"10px 14px",background:T.input,borderRadius:T.rs,border:`1px solid ${T.border}`}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4,gap:8,flexWrap:"wrap"}}>
+                <span style={{fontSize:13,fontWeight:700}}>{c.author} <span style={{color:T.dim,fontWeight:500,fontSize:11}}>({c.email})</span></span>
+                <span style={{fontSize:11,color:T.dim}}>{c.date?new Date(c.date).toLocaleDateString("fr-FR"):""}</span>
+              </div>
+              <p style={{fontSize:13,color:T.sec,marginBottom:8,lineHeight:1.5,whiteSpace:"pre-wrap"}}>{c.text}</p>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                <span style={{fontSize:11,color:T.dim,fontStyle:"italic"}}>Sur : {c.seqTitre}</span>
+                <button onClick={()=>deleteComment(c.seqId,c.idx)} style={delBtn}>🗑 Supprimer</button>
+              </div>
+            </div>
+          ))}
+      </div>}
+
+      {tab==="seqs"&&<div style={{display:"flex",flexDirection:"column",gap:8,maxHeight:"58vh",overflowY:"auto"}}>
+        {userSeqs.length===0?<p style={{color:T.dim,textAlign:"center",padding:24}}>Aucune séquence publiée par les utilisateurs.</p>:
+          userSeqs.map(s=>(
+            <div key={s.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",background:T.input,borderRadius:T.rs,border:`1px solid ${T.border}`,gap:10}}>
+              <div style={{minWidth:0,flex:1}}>
+                <div style={{fontSize:14,fontWeight:700,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{s.titre}</div>
+                <div style={{fontSize:12,color:T.dim}}>{s.niveau} · {s.seances?.length||0} séances · par {s.auteur||"Anonyme"}</div>
+              </div>
+              <button onClick={()=>deleteSeq(s.id,s.titre)} style={delBtn}>🗑 Supprimer</button>
+            </div>
+          ))}
+      </div>}
+    </div>
+  );
+}
+
 // ─── MAIN APP ─────────────────────────────────────────────
 
 export default function App(){
@@ -360,15 +466,24 @@ export default function App(){
   const[sel,sSel]=useState(null);const[showAI,sAI]=useState(false);
   const[user,sUser]=useState(null);const[authOpen,sAuth]=useState(false);
   const[showPublish,sPub]=useState(false);const[userSeqs,sUS]=useState([]);
+  const[showAdmin,sAdmin]=useState(false);
 
   useEffect(()=>{(async()=>{
-    const u=await ST.get("tc-current-user");if(u)sUser(u);
+    const u=await ST.get("tc-current-user");
+    if(u){const role=isAdmin(u)?"admin":(u.role||"user");sUser({...u,role});}
     const us=await ST.gS("tc-user-seqs")||[];sUS(us);
   })()},[]);
 
-  const login=async u=>{sUser(u);await ST.set("tc-current-user",u);};
+  const login=async u=>{
+    const users=await ST.gS("tc-users")||{};
+    const role=isAdmin(u)?"admin":(users[u.email]?.role||"user");
+    const withRole={...u,role};
+    sUser(withRole);
+    await ST.set("tc-current-user",withRole);
+  };
   const logout=async()=>{sUser(null);await ST.set("tc-current-user",null);};
   const publishSeq=async seq=>{const n=[...userSeqs,seq];sUS(n);await ST.sS("tc-user-seqs",n);};
+  const deleteUserSeq=async id=>{const n=userSeqs.filter(s=>s.id!==id);sUS(n);await ST.sS("tc-user-seqs",n);};
 
   const allSeqs=[...SEQUENCES,...userSeqs];
   const filtered=allSeqs.filter(s=>{const mn=filter==="Tous"||s.niveau===filter;const ms=!search||s.titre.toLowerCase().includes(search.toLowerCase())||s.description.toLowerCase().includes(search.toLowerCase());return mn&&ms;});
@@ -391,8 +506,9 @@ export default function App(){
           ))}
           <div style={{width:1,height:20,background:T.border,margin:"0 4px"}}/>
           {user?<div style={{display:"flex",alignItems:"center",gap:8}}>
-            <div style={{width:30,height:30,borderRadius:15,background:T.grad5,display:"flex",alignItems:"center",justifyContent:"center",color:T.white,fontSize:12,fontWeight:800}}>{user.name[0].toUpperCase()}</div>
-            <span style={{fontSize:12,fontWeight:600,color:T.text}}>{user.name}</span>
+            <div style={{width:30,height:30,borderRadius:15,background:isAdmin(user)?"linear-gradient(135deg,#7c3aed,#ef4444)":T.grad5,display:"flex",alignItems:"center",justifyContent:"center",color:T.white,fontSize:12,fontWeight:800}}>{user.name[0].toUpperCase()}</div>
+            <span style={{fontSize:12,fontWeight:600,color:T.text}}>{user.name}{isAdmin(user)&&<span style={{marginLeft:5,fontSize:9,padding:"1px 6px",borderRadius:8,background:T.purpleBg,color:T.purple,fontWeight:800,letterSpacing:.5,verticalAlign:"middle"}}>ADMIN</span>}</span>
+            {isAdmin(user)&&<button onClick={()=>sAdmin(true)} title="Panneau d'administration" style={{background:T.purpleBg,border:`1px solid ${T.purpleB}`,color:T.purple,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"'DM Sans',sans-serif",padding:"5px 10px",borderRadius:8}}>🛠 Admin</button>}
             <button onClick={logout} style={{background:"none",border:"none",color:T.dim,fontSize:11,cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}}>Déco.</button>
           </div>:<Btn v="secondary" onClick={()=>sAuth(true)} style={{padding:"6px 14px",fontSize:12}}>Connexion</Btn>}
         </div>
@@ -460,6 +576,7 @@ export default function App(){
             <h3 style={{fontSize:16,fontWeight:800,marginBottom:8,fontFamily:"'Sora',sans-serif"}}>📥 Télécharger toutes les ressources</h3>
             <p style={{fontSize:13,color:T.sec,marginBottom:14,lineHeight:1.6}}>Téléchargez l'ensemble des {totalF} documents HTML en un seul ZIP. Utilisable hors-ligne, imprimable directement depuis votre navigateur.</p>
             <Btn onClick={async()=>{
+              if(!user){sAuth(true);return;}
               const{default:JSZip}=await import("https://cdn.jsdelivr.net/npm/jszip@3.10.1/+esm");
               const zip=new JSZip();
               for(const[key,b64] of Object.entries(_F)){
@@ -470,7 +587,7 @@ export default function App(){
               const u=URL.createObjectURL(blob);
               const a=document.createElement("a");a.href=u;a.download="TechnoCollege_21_sequences.zip";
               document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(u);
-            }}>📦 Télécharger le ZIP ({allSeqs.length} séquences · {totalF} documents)</Btn>
+            }}>{user?`📦 Télécharger le ZIP (${allSeqs.length} séquences · ${totalF} documents)`:"🔒 Connexion requise pour télécharger"}</Btn>
           </Card>
       </div>}
 
@@ -478,6 +595,7 @@ export default function App(){
       <footer style={{borderTop:`1px solid ${T.border}`,padding:"20px 24px",marginTop:40,display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:12}}>
         <p style={{fontSize:12,color:T.dim}}>TechnoCollège — {allSeqs.length} séquences · BO n°9 du 29/02/2024</p>
         <Btn v="secondary" style={{padding:"6px 14px",fontSize:12}} onClick={()=>{
+          if(!user){sAuth(true);return;}
           const allKeys=Object.keys(_F);
           const manifest={sequences:allSeqs.map(s=>({id:s.id,niveau:s.niveau,titre:s.titre,description:s.description,seances:s.seances.map(se=>({num:se.num,titre:se.titre,type:se.type,files:se.files.map(f=>f.filename)})),resources:s.resources.map(r=>r.filename)}))};
           import("https://cdn.jsdelivr.net/npm/jszip@3.10.1/+esm").then(({default:JSZip})=>{
@@ -492,6 +610,7 @@ export default function App(){
       <AuthModal open={authOpen} onClose={()=>sAuth(false)} onLogin={login}/>
       <Modal open={showAI} onClose={()=>sAI(false)} title="🤖 TechnoBot" wide><div style={{height:"60vh"}}><AIChat/></div></Modal>
       <Modal open={showPublish} onClose={()=>sPub(false)} title="📦 Publier une séquence" wide><PublishForm onClose={()=>sPub(false)} onPublish={publishSeq} user={user}/></Modal>
+      <Modal open={showAdmin&&isAdmin(user)} onClose={()=>sAdmin(false)} title="🛠 Administration" wide><AdminPanel allSeqs={allSeqs} userSeqs={userSeqs} onDeleteSeq={deleteUserSeq} currentUser={user}/></Modal>
     </div>
   );
 }
