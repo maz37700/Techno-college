@@ -100,7 +100,7 @@ function AIChat({sequence}){
   const[inp,sI]=useState("");const[ld,sL]=useState(false);const ref=useRef(null);
   useEffect(()=>{if(ref.current)ref.current.scrollTop=ref.current.scrollHeight},[msgs]);
   const send=async()=>{if(!inp.trim()||ld)return;const u=inp.trim();sI("");sM(m=>[...m,{role:"user",text:u}]);sL(true);
-  try{const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,system:`Expert Technologie collège cycle 4, BO 2024. ${sequence?`Séquence: "${sequence.titre}" — ${sequence.description}`:"Programme complet."}. Contenu pédagogique de qualité, français, clair.`,messages:[...msgs.slice(1).map(m=>({role:m.role,content:m.text})),{role:"user",content:u}]})});const d=await r.json();sM(m=>[...m,{role:"assistant",text:d.content?.map(c=>c.text||"").join("")||"Erreur."}]);}catch{sM(m=>[...m,{role:"assistant",text:"⚠️ Erreur connexion."}]);}sL(false);};
+  try{const r=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({maxTokens:1000,system:`Expert Technologie collège cycle 4, BO 2024. ${sequence?`Séquence: "${sequence.titre}" — ${sequence.description}`:"Programme complet."}. Contenu pédagogique de qualité, français, clair.`,messages:[...msgs.slice(1).map(m=>({role:m.role,content:m.text})),{role:"user",content:u}]})});const d=await r.json();sM(m=>[...m,{role:"assistant",text:d.text||(d.error?`⚠️ ${d.error}`:"Erreur.")}]);}catch(e){sM(m=>[...m,{role:"assistant",text:"⚠️ Erreur connexion : "+e.message}]);}sL(false);};
   return <div style={{display:"flex",flexDirection:"column",height:"60vh"}}><div ref={ref} style={{flex:1,overflowY:"auto",padding:"12px 0",display:"flex",flexDirection:"column",gap:12}}>{msgs.map((m,i)=><div key={i} style={{display:"flex",justifyContent:m.role==="user"?"flex-end":"flex-start"}}><div style={{maxWidth:"82%",padding:"12px 16px",borderRadius:m.role==="user"?"14px 14px 4px 14px":"14px 14px 14px 4px",background:m.role==="user"?T.grad5:T.input,color:m.role==="user"?T.white:T.text,fontSize:14,lineHeight:1.7,whiteSpace:"pre-wrap"}}>{m.text}</div></div>)}{ld&&<div style={{display:"flex",gap:5,padding:12}}>{[0,1,2].map(i=><div key={i} style={{width:8,height:8,borderRadius:"50%",background:T.green,animation:`bounce 1.4s ease ${i*.16}s infinite`}}/>)}</div>}</div><div style={{display:"flex",gap:8,paddingTop:12,borderTop:`1px solid ${T.border}`}}><input value={inp} onChange={e=>sI(e.target.value)} onKeyDown={e=>e.key==="Enter"&&send()} placeholder="Demandez une fiche, un exercice…" style={{flex:1,background:T.input,border:`1.5px solid ${T.border}`,borderRadius:T.rs,padding:"10px 16px",color:T.text,fontSize:14,outline:"none",fontFamily:"'DM Sans',sans-serif"}}/><Btn onClick={send} disabled={ld||!inp.trim()}>Envoyer</Btn></div></div>;
 }
 
@@ -312,14 +312,14 @@ function PublishForm({onClose,onPublish,user}){
 
   const analyze=async()=>{
     if(!fc&&!form.titre)return;sAn(true);sSt("analyzing");sPr("L'IA génère...");
-    try{const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:4000,messages:[{role:"user",content:`Expert Technologie collège cycle 4 BO 2024.
+    try{const r=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({maxTokens:4000,messages:[{role:"user",content:`Expert Technologie collège cycle 4 BO 2024.
 ${fc?`Fichiers:\n${fc.slice(0,12000)}`:""}
 ${form.titre?`Titre: ${form.titre}`:""}${form.desc?` Consignes: ${form.desc}`:""}
 Niveau: ${form.niveau}, Séances: ${form.nbSeances||5}, Auteur: ${form.auteur||"Enseignant"}
 JSON pur (pas de backticks): {"titre":"...","niveau":"${form.niveau}","duree":"X séances","auteur":"...","description":"...","competences":["CT X.X — ..."],"ressources":["..."],"seances":[{"num":1,"titre":"...","type":"Cours","duree":"55 min","contenu":"5-8 phrases détaillées"}],"quiz":[{"q":"...","options":["A","B","C","D"],"correct":0}]}
 8+ quiz. Séances détaillées. JSON UNIQUEMENT.`}]})});
-      const d=await r.json();const text=d.content?.map(c=>c.text||"").join("")||"";
+      const d=await r.json();if(d.error)throw new Error(d.error);const text=d.text||"";
       let p;try{p=JSON.parse(text.replace(/```json?\s*/g,"").replace(/```\s*/g,"").trim());}catch{const m=text.match(/\{[\s\S]*\}/);if(m)p=JSON.parse(m[0]);else throw new Error("Format invalide");}
       sGen({id:"user-"+Date.now(),titre:p.titre||form.titre||"Sans titre",niveau:p.niveau||form.niveau,duree:p.duree||`${p.seances?.length||5} séances`,auteur:p.auteur||form.auteur,
         description:p.description||"",nbFiles:0,seances:(p.seances||[]).map((s,i)=>({num:s.num||i+1,titre:s.titre||`Séance ${i+1}`,type:s.type||"Cours",contenu:s.contenu||"",files:[]})),
