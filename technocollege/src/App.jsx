@@ -640,7 +640,7 @@ export default function App(){
 
       {/* ─── FOOTER ─── */}
       <footer style={{borderTop:`1px solid ${T.border}`,padding:"20px 24px",marginTop:40,display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:12}}>
-        <p style={{fontSize:12,color:T.dim}}>TechnoCollège — {allSeqs.length} séquences · BO n°9 du 29/02/2024</p>
+        <p style={{fontSize:12,color:T.dim}}>Créé par H. Bounedjar</p>
       </footer>
 
       <AuthModal open={authOpen} onClose={()=>sAuth(false)} onLogin={login}/>
