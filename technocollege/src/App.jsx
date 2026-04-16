@@ -619,23 +619,6 @@ export default function App(){
         <h3 style={{fontSize:18,fontWeight:800,marginBottom:14,fontFamily:"'Sora',sans-serif"}}>Thématiques</h3>
         {[["Matière, Énergie, Information (MEI)","Approche spiralaire des concepts fondamentaux",["5ème","4ème","3ème"]],["Objets et Systèmes Techniques","Analyse, conception et réalisation",["5ème","4ème","3ème"]],["Numérique et programmation","Réseaux, IA, cybersécurité, Scratch, Python, HTML",["5ème","4ème","3ème"]],["Modélisation et simulation","CAO, impression 3D, maquettes",["4ème","3ème"]],["Informatique et société","Impact, éthique, développement durable",["5ème","4ème","3ème"]]].map((t,i)=><Card key={i} style={{marginBottom:12,padding:18}}><h4 style={{fontSize:15,fontWeight:700,marginBottom:6}}>{t[0]}</h4><p style={{fontSize:13,color:T.sec,marginBottom:10}}>{t[1]}</p><div style={{display:"flex",gap:6}}>{t[2].map(n=><Badge key={n} color={NC[n]} bg={NBG[n]}>{n}</Badge>)}</div></Card>)}
 
-          <Card style={{marginTop:30,padding:24,background:T.gBg,border:`1.5px solid ${T.gB}`}}>
-            <h3 style={{fontSize:16,fontWeight:800,marginBottom:8,fontFamily:"'Sora',sans-serif"}}>📥 Télécharger toutes les ressources</h3>
-            <p style={{fontSize:13,color:T.sec,marginBottom:14,lineHeight:1.6}}>Téléchargez l'ensemble des {totalF} documents HTML en un seul ZIP. Utilisable hors-ligne, imprimable directement depuis votre navigateur.</p>
-            <Btn onClick={async()=>{
-              if(!user){sAuth(true);return;}
-              const{default:JSZip}=await import("https://cdn.jsdelivr.net/npm/jszip@3.10.1/+esm");
-              const zip=new JSZip();
-              for(const[key,b64] of Object.entries(_F)){
-                const bytes=Uint8Array.from(atob(b64),c=>c.charCodeAt(0));
-                zip.file(key,bytes);
-              }
-              const blob=await zip.generateAsync({type:"blob"});
-              const u=URL.createObjectURL(blob);
-              const a=document.createElement("a");a.href=u;a.download="TechnoCollege_21_sequences.zip";
-              document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(u);
-            }}>{user?`📦 Télécharger le ZIP (${allSeqs.length} séquences · ${totalF} documents)`:"🔒 Connexion requise pour télécharger"}</Btn>
-          </Card>
       </div>}
 
       {/* ─── FOOTER ─── */}
