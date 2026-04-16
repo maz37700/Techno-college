@@ -641,17 +641,6 @@ export default function App(){
       {/* ─── FOOTER ─── */}
       <footer style={{borderTop:`1px solid ${T.border}`,padding:"20px 24px",marginTop:40,display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:12}}>
         <p style={{fontSize:12,color:T.dim}}>TechnoCollège — {allSeqs.length} séquences · BO n°9 du 29/02/2024</p>
-        <Btn v="secondary" style={{padding:"6px 14px",fontSize:12}} onClick={()=>{
-          if(!user){sAuth(true);return;}
-          const allKeys=Object.keys(_F);
-          const manifest={sequences:allSeqs.map(s=>({id:s.id,niveau:s.niveau,titre:s.titre,description:s.description,seances:s.seances.map(se=>({num:se.num,titre:se.titre,type:se.type,files:se.files.map(f=>f.filename)})),resources:s.resources.map(r=>r.filename)}))};
-          import("https://cdn.jsdelivr.net/npm/jszip@3.10.1/+esm").then(({default:JSZip})=>{
-            const zip=new JSZip();
-            zip.file("manifest.json",JSON.stringify(manifest,null,2));
-            for(const key of allKeys){const parts=key.split("/");const folder=parts[0];const file=parts[1];const html=decodeB64(_F[key]);zip.folder(folder).file(file,html);}
-            zip.generateAsync({type:"blob"}).then(blob=>{const u=URL.createObjectURL(blob);const a=document.createElement("a");a.href=u;a.download="TechnoCollege_21_sequences.zip";document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(u);});
-          });
-        }}>📥 Télécharger tout le projet (ZIP)</Btn>
       </footer>
 
       <AuthModal open={authOpen} onClose={()=>sAuth(false)} onLogin={login}/>
