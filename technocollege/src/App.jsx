@@ -330,14 +330,22 @@ JSON pur (pas de backticks): {"titre":"...","niveau":"${form.niveau}","duree":"X
 
   if(step==="analyzing")return <div style={{textAlign:"center",padding:48}}><div style={{fontSize:48,marginBottom:16,animation:"pulse 2s infinite"}}>🤖</div><h3 style={{fontSize:18,fontWeight:800,fontFamily:"'Sora',sans-serif",marginBottom:8}}>Génération...</h3><p style={{color:T.sec,fontSize:14}}>{progress}</p><div style={{width:180,height:5,background:T.input,borderRadius:3,margin:"16px auto 0",overflow:"hidden"}}><div style={{width:"50%",height:"100%",background:T.grad5,borderRadius:3,animation:"loadbar 1.5s ease-in-out infinite"}}/></div></div>;
 
+  if(step==="submitted")return <div style={{textAlign:"center",padding:"30px 20px"}}>
+    <div style={{fontSize:56,marginBottom:14}}>📬</div>
+    <h3 style={{fontSize:18,fontWeight:800,marginBottom:10,fontFamily:"'Sora',sans-serif"}}>Séquence envoyée !</h3>
+    <p style={{fontSize:14,color:T.sec,marginBottom:20,lineHeight:1.6,maxWidth:440,margin:"0 auto 20px"}}>Votre séquence a été soumise et attend la validation d'un administrateur avant d'apparaître dans le catalogue.</p>
+    <Btn onClick={onClose}>Fermer</Btn>
+  </div>;
+
   if(step==="review"&&gen)return <div style={{display:"flex",flexDirection:"column",gap:14}}>
-    <div style={{display:"flex",alignItems:"center",gap:10,padding:"12px 16px",background:T.greenBg,borderRadius:T.rs,border:`1.5px solid ${T.greenB}`}}><span style={{fontSize:18}}>✅</span><span style={{fontSize:14,color:T.green,fontWeight:700}}>Séquence générée — Vérifiez et publiez</span></div>
+    <div style={{display:"flex",alignItems:"center",gap:10,padding:"12px 16px",background:T.greenBg,borderRadius:T.rs,border:`1.5px solid ${T.greenB}`}}><span style={{fontSize:18}}>✅</span><span style={{fontSize:14,color:T.green,fontWeight:700}}>Séquence générée — Vérifiez et soumettez pour validation</span></div>
     <div><label style={ls}>Titre</label><input value={gen.titre} onChange={e=>sGen(s=>({...s,titre:e.target.value}))} style={is}/></div>
     <div><label style={ls}>Description</label><textarea value={gen.description} onChange={e=>sGen(s=>({...s,description:e.target.value}))} rows={2} style={{...is,resize:"vertical"}}/></div>
     <div><label style={ls}>📋 {gen.seances.length} séances</label><div style={{maxHeight:180,overflowY:"auto",display:"flex",flexDirection:"column",gap:6}}>{gen.seances.map((s,i)=><div key={i} style={{padding:"8px 14px",background:T.input,borderRadius:8,fontSize:13}}><strong>S{s.num}</strong> — {s.titre} <span style={{float:"right",color:T.dim,fontSize:11}}>{s.type}</span></div>)}</div></div>
+    <div style={{padding:"10px 14px",background:T.amberBg,borderRadius:T.rs,border:`1px solid ${T.amberB}`,fontSize:12,color:T.amber,fontWeight:600,display:"flex",alignItems:"center",gap:8}}>⏳ La séquence sera publiée après validation par un administrateur.</div>
     <div style={{display:"flex",gap:10,justifyContent:"flex-end",borderTop:`1px solid ${T.border}`,paddingTop:14}}>
       <Btn v="ghost" onClick={()=>sSt("upload")}>← Retour</Btn><Btn v="ghost" onClick={onClose}>Annuler</Btn>
-      <Btn onClick={()=>{onPublish(gen);onClose();}}>Publier</Btn>
+      <Btn onClick={()=>{onPublish(gen);sSt("submitted");}}>Soumettre</Btn>
     </div>
   </div>;
 
@@ -364,8 +372,10 @@ JSON pur (pas de backticks): {"titre":"...","niveau":"${form.niveau}","duree":"X
 }
 
 // ─── ADMIN PANEL ──────────────────────────────────────────
-function AdminPanel({allSeqs,userSeqs,onDeleteSeq,currentUser}){
-  const[tab,sT]=useState("users");
+function AdminPanel({allSeqs,userSeqs,onDeleteSeq,onApproveSeq,currentUser}){
+  const pendingSeqs=userSeqs.filter(s=>s.status==="pending");
+  const publishedSeqs=userSeqs.filter(s=>!s.status||s.status==="approved");
+  const[tab,sT]=useState(pendingSeqs.length>0?"pending":"users");
   const[users,sUsers]=useState({});
   const[comments,sComments]=useState([]);
   const[loaded,sLd]=useState(false);
@@ -405,10 +415,45 @@ function AdminPanel({allSeqs,userSeqs,onDeleteSeq,currentUser}){
   return (
     <div style={{display:"flex",flexDirection:"column",gap:14}}>
       <div style={{display:"flex",gap:4,borderBottom:`1px solid ${T.border}`,paddingBottom:10,flexWrap:"wrap"}}>
+        <button onClick={()=>sT("pending")} style={{...tabStyle(tab==="pending"),position:"relative"}}>⏳ À valider {pendingSeqs.length>0&&<span style={{marginLeft:4,fontSize:10,padding:"1px 7px",borderRadius:10,background:T.red,color:T.white,fontWeight:800}}>{pendingSeqs.length}</span>}</button>
         <button onClick={()=>sT("users")} style={tabStyle(tab==="users")}>👥 Utilisateurs ({Object.keys(users).length})</button>
         <button onClick={()=>sT("comments")} style={tabStyle(tab==="comments")}>💬 Commentaires ({comments.length})</button>
-        <button onClick={()=>sT("seqs")} style={tabStyle(tab==="seqs")}>📦 Séquences publiées ({userSeqs.length})</button>
+        <button onClick={()=>sT("seqs")} style={tabStyle(tab==="seqs")}>📦 Séquences publiées ({publishedSeqs.length})</button>
       </div>
+
+      {tab==="pending"&&<div style={{display:"flex",flexDirection:"column",gap:10,maxHeight:"58vh",overflowY:"auto"}}>
+        {pendingSeqs.length===0?<div style={{color:T.dim,textAlign:"center",padding:30}}><div style={{fontSize:40,marginBottom:10}}>✅</div><p>Aucune séquence en attente de validation.</p></div>:
+          pendingSeqs.map(s=>(
+            <div key={s.id} style={{padding:"14px 16px",background:T.amberBg,borderRadius:T.rs,border:`1.5px solid ${T.amberB}`}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10,marginBottom:8,flexWrap:"wrap"}}>
+                <div style={{minWidth:0,flex:1}}>
+                  <div style={{fontSize:15,fontWeight:800,marginBottom:4,fontFamily:"'Sora',sans-serif"}}>{s.titre}</div>
+                  <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:6}}>
+                    <span style={{fontSize:11,padding:"2px 8px",borderRadius:10,background:NBG[s.niveau],color:NC[s.niveau],fontWeight:700}}>{s.niveau}</span>
+                    <span style={{fontSize:11,padding:"2px 8px",borderRadius:10,background:T.input,color:T.sec,fontWeight:700}}>{s.seances?.length||0} séances</span>
+                    <span style={{fontSize:11,padding:"2px 8px",borderRadius:10,background:T.amber+"22",color:T.amber,fontWeight:800}}>⏳ EN ATTENTE</span>
+                  </div>
+                  <div style={{fontSize:12,color:T.sec,marginBottom:4}}>Par <strong>{s.auteur||"Anonyme"}</strong> · soumis le {s.publishedAt?new Date(s.publishedAt).toLocaleDateString("fr-FR"):"—"}</div>
+                  {s.description&&<p style={{fontSize:13,color:T.sec,lineHeight:1.5,marginTop:6}}>{s.description}</p>}
+                </div>
+              </div>
+              {s.seances?.length>0&&<details style={{marginBottom:10}}>
+                <summary style={{cursor:"pointer",fontSize:12,color:T.sec,fontWeight:600,marginBottom:6}}>Voir les {s.seances.length} séances</summary>
+                <div style={{display:"flex",flexDirection:"column",gap:4,marginTop:6}}>
+                  {s.seances.map((se,i)=>(
+                    <div key={i} style={{padding:"6px 10px",background:T.card,borderRadius:6,fontSize:12}}>
+                      <strong>S{se.num}</strong> · <span style={{color:T.dim}}>{se.type}</span> — {se.titre}
+                    </div>
+                  ))}
+                </div>
+              </details>}
+              <div style={{display:"flex",gap:8,justifyContent:"flex-end",paddingTop:8,borderTop:`1px solid ${T.amberB}`}}>
+                <button onClick={()=>{if(confirm(`Refuser et supprimer « ${s.titre} » ?`))onDeleteSeq(s.id)}} style={delBtn}>✕ Refuser</button>
+                <button onClick={()=>onApproveSeq(s.id)} style={{background:T.green,color:T.white,border:"none",padding:"6px 14px",borderRadius:8,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}}>✓ Approuver</button>
+              </div>
+            </div>
+          ))}
+      </div>}
 
       {tab==="users"&&<div style={{display:"flex",flexDirection:"column",gap:8,maxHeight:"58vh",overflowY:"auto"}}>
         {Object.keys(users).length===0?<p style={{color:T.dim,textAlign:"center",padding:24}}>Aucun utilisateur inscrit.</p>:
@@ -444,8 +489,8 @@ function AdminPanel({allSeqs,userSeqs,onDeleteSeq,currentUser}){
       </div>}
 
       {tab==="seqs"&&<div style={{display:"flex",flexDirection:"column",gap:8,maxHeight:"58vh",overflowY:"auto"}}>
-        {userSeqs.length===0?<p style={{color:T.dim,textAlign:"center",padding:24}}>Aucune séquence publiée par les utilisateurs.</p>:
-          userSeqs.map(s=>(
+        {publishedSeqs.length===0?<p style={{color:T.dim,textAlign:"center",padding:24}}>Aucune séquence publiée approuvée.</p>:
+          publishedSeqs.map(s=>(
             <div key={s.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",background:T.input,borderRadius:T.rs,border:`1px solid ${T.border}`,gap:10}}>
               <div style={{minWidth:0,flex:1}}>
                 <div style={{fontSize:14,fontWeight:700,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{s.titre}</div>
@@ -482,10 +527,12 @@ export default function App(){
     await ST.set("tc-current-user",withRole);
   };
   const logout=async()=>{sUser(null);await ST.set("tc-current-user",null);};
-  const publishSeq=async seq=>{const n=[...userSeqs,seq];sUS(n);await ST.sS("tc-user-seqs",n);};
+  const publishSeq=async seq=>{const n=[...userSeqs,{...seq,status:"pending",publishedAt:Date.now()}];sUS(n);await ST.sS("tc-user-seqs",n);};
   const deleteUserSeq=async id=>{const n=userSeqs.filter(s=>s.id!==id);sUS(n);await ST.sS("tc-user-seqs",n);};
+  const approveSeq=async id=>{const n=userSeqs.map(s=>s.id===id?{...s,status:"approved",approvedAt:Date.now()}:s);sUS(n);await ST.sS("tc-user-seqs",n);};
 
-  const allSeqs=[...SEQUENCES,...userSeqs];
+  const approvedUserSeqs=userSeqs.filter(s=>!s.status||s.status==="approved");
+  const allSeqs=[...SEQUENCES,...approvedUserSeqs];
   const filtered=allSeqs.filter(s=>{const mn=filter==="Tous"||s.niveau===filter;const ms=!search||s.titre.toLowerCase().includes(search.toLowerCase())||s.description.toLowerCase().includes(search.toLowerCase());return mn&&ms;});
   const totalS=allSeqs.reduce((a,s)=>a+s.seances.length,0);
   const totalF=allSeqs.reduce((a,s)=>a+s.nbFiles,0);
@@ -610,7 +657,7 @@ export default function App(){
       <AuthModal open={authOpen} onClose={()=>sAuth(false)} onLogin={login}/>
       <Modal open={showAI} onClose={()=>sAI(false)} title="🤖 TechnoBot" wide><div style={{height:"60vh"}}><AIChat/></div></Modal>
       <Modal open={showPublish} onClose={()=>sPub(false)} title="📦 Publier une séquence" wide><PublishForm onClose={()=>sPub(false)} onPublish={publishSeq} user={user}/></Modal>
-      <Modal open={showAdmin&&isAdmin(user)} onClose={()=>sAdmin(false)} title="🛠 Administration" wide><AdminPanel allSeqs={allSeqs} userSeqs={userSeqs} onDeleteSeq={deleteUserSeq} currentUser={user}/></Modal>
+      <Modal open={showAdmin&&isAdmin(user)} onClose={()=>sAdmin(false)} title="🛠 Administration" wide><AdminPanel allSeqs={allSeqs} userSeqs={userSeqs} onDeleteSeq={deleteUserSeq} onApproveSeq={approveSeq} currentUser={user}/></Modal>
     </div>
   );
 }
